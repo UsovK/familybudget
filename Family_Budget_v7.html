@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Семейный бюджет</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --green:#2e9e6b; --red:#e05c5c; --accent:#3b7ddd;
+    --shadow:0 2px 10px rgba(17,24,39,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+  body{background:var(--bg);color:var(--text);padding:16px;display:flex;justify-content:center;}
+  .app{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;
+    background:var(--panel);border-radius:16px;padding:10px 12px;box-shadow:var(--shadow);}
+  .nav-btn{width:36px;height:36px;border:none;border-radius:10px;background:#eef1f5;
+    font-size:18px;color:var(--text);cursor:pointer;line-height:1;}
+  .nav-btn:hover{background:#e2e7ee;}
+  .period{display:flex;flex-direction:column;align-items:center;}
+  .period-label{font-weight:700;font-size:16px;text-transform:capitalize;}
+  .period-sub{font-size:11px;color:var(--muted);}
+
+  .balance{background:var(--panel);border-radius:16px;padding:18px;text-align:center;box-shadow:var(--shadow);}
+  .balance-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  .balance-value{font-size:32px;font-weight:700;margin:6px 0 14px;}
+  .balance-value.neg{color:var(--red);} .balance-value.pos{color:var(--green);}
+  .totals{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .total{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px;}
+  .total-label{font-size:11px;color:var(--muted);}
+  .total-value{font-size:15px;font-weight:700;margin-top:3px;}
+  .total.inc .total-value{color:var(--green);}
+  .total.exp .total-value{color:var(--red);}
+
+  .section-head{display:flex;align-items:center;justify-content:space-between;padding:0 2px;}
+  .section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  .link-btn{background:none;border:1px solid var(--accent);color:var(--accent);
+    border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;}
+  .link-btn:hover{background:rgba(59,125,221,.08);}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .cat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+    transition:transform .12s,box-shadow .12s;box-shadow:var(--shadow);}
+  .cat:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(17,24,39,.10);}
+  .cat:active{transform:scale(.97);}
+  .cat-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:19px;}
+  .cat-name{font-size:11px;text-align:center;color:#374151;line-height:1.15;}
+  .cat-sum{font-size:10px;font-weight:700;color:var(--red);min-height:12px;}
+
+  .list{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
+  .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;
+    justify-content:center;font-size:17px;flex:0 0 auto;}
+  .row-main{flex:1;min-width:0;}
+  .row-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row-sub{font-size:11px;color:var(--muted);}
+  .row-amount{font-size:13px;font-weight:700;white-space:nowrap;}
+  .row-amount.exp{color:var(--red);} .row-amount.inc{color:var(--green);}
+  .mini{background:none;border:none;cursor:pointer;font-size:15px;color:#9ca3af;padding:4px;}
+  .mini:hover{color:var(--accent);}
+  .empty{padding:18px;text-align:center;font-size:13px;color:var(--muted);}
+
+  .fab-bar{display:flex;gap:10px;margin-top:2px;}
+  .fab{flex:1;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;
+    color:#fff;cursor:pointer;box-shadow:var(--shadow);}
+  .fab.exp{background:var(--red);} .fab.inc{background:var(--green);}
+  .fab:hover{filter:brightness(.95);}
+
+  .overlay{position:fixed;inset:0;background:rgba(17,24,39,.55);display:none;
+    align-items:center;justify-content:center;padding:16px;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:400px;padding:18px;
+    display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto;}
+  .modal h3{font-size:16px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;color:var(--muted);}
+  input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:10px;font-size:14px;background:#fbfcfd;color:var(--text);}
+  input:focus,select:focus,textarea:focus{outline:2px solid rgba(59,125,221,.25);border-color:var(--accent);}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+  .btn{padding:10px 16px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-ghost{background:#eef1f5;color:#374151;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-danger{background:var(--red);color:#fff;}
+  .hint{font-size:12px;color:var(--muted);line-height:1.4;}
+  .icon-picker{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;}
+  .icon-opt{aspect-ratio:1;border:1px solid var(--line);border-radius:8px;background:#fbfcfd;
+    cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .icon-opt.sel{border-color:var(--accent);background:rgba(59,125,221,.10);}
+  .tabs{display:flex;gap:6px;background:#eef1f5;padding:4px;border-radius:10px;}
+  .tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--muted);cursor:pointer;}
+  .tab.on{background:#fff;color:var(--text);box-shadow:var(--shadow);}
+  .cat-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .cat-row:last-child{border-bottom:none;}
+  .radio{display:flex;flex-direction:column;gap:8px;}
+  .radio label{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#374151;
+    background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;}
+  .radio input{width:auto;margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Переключение месяца -->
+  <div class="topbar">
+    <button class="nav-btn" onclick="shiftPeriod(-1)">&lsaquo;</button>
+    <div class="period">
+      <div class="period-label" id="periodLabel">—</div>
+      <div class="period-sub" id="periodSub"></div>
+    </div>
+    <button class="nav-btn" onclick="shiftPeriod(1)">&rsaquo;</button>
+  </div>
+
+  <!-- Баланс -->
+  <div class="balance">
+    <div class="balance-label">Баланс за месяц</div>
+    <div class="balance-value" id="balanceValue">0 ₽</div>
+    <div class="totals">
+      <div class="total inc">
+        <div class="total-label">Доходы</div>
+        <div class="total-value" id="incomeValue">0 ₽</div>
+      </div>
+      <div class="total exp">
+        <div class="total-label">Расходы</div>
+        <div class="total-value" id="expenseValue">0 ₽</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Категории расходов -->
+  <div class="section-head">
+    <div class="section-title">Расходы по категориям</div>
+    <div style="display:flex;gap:6px;">
+      <button class="link-btn" onclick="openTransfer()">Перенос статей</button>
+      <button class="link-btn" onclick="openCategories()">Категории</button>
+    </div>
+  </div>
+  <div class="grid" id="catGrid"></div>
+
+  <!-- Операции -->
+  <div class="section-head">
+    <div class="section-title">Операции</div>
+    <button class="link-btn" onclick="openBackup()">Данные</button>
+  </div>
+  <div class="list" id="opsList"></div>
+
+  <div class="fab-bar">
+    <button class="fab exp" onclick="openOperation('expense')">Расход</button>
+    <button class="fab inc" onclick="openOperation('income')">Доход</button>
+  </div>
+</div>
+
+<!-- Модальное окно операции -->
+<div class="overlay" id="opOverlay">
+  <div class="modal">
+    <h3 id="opTitle">Новая операция</h3>
+    <div class="field">
+      <label>Сумма, ₽</label>
+      <input type="number" id="opAmount" min="0" step="0.01" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Категория</label>
+      <select id="opCategory"></select>
+    </div>
+    <div class="field">
+      <label>Дата</label>
+      <input type="date" id="opDate">
+    </div>
+    <div class="field">
+      <label>Примечание</label>
+      <input type="text" id="opNote" placeholder="Например: продукты на неделю">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="opDelete" onclick="deleteOperation()" style="display:none;margin-right:auto;">Удалить</button>
+      <button class="btn btn-ghost" onclick="closeAll()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveOperation()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Перенос статей -->
+<div class="overlay" id="transferOverlay">
+  <div class="modal">
+    <h3>Перенос статей в другой месяц</h3>
+    <p class="hint">Выберите, что переносим и куда. Категории и пиктограммы сохраняются, меняется только месяц.</p>
+    <div class="field">
+      <label>Куда перенести</label>
+      <input type="month" id="transferTarget">
+    </div>
+    <div class="field">
+      <label>Что переносим</label>
+      <div class="radio">
+        <label><input type="radio" name="transferMode" value="all" checked>
+          <span>Все операции выбранного месяца</span></label>
+        <label><input type="radio" name="transferMode" value="category">
+          <span>Только одну категорию</span></label>
+        <label><input type="radio" name="transferMode" value="copy">
+          <span>Скопировать (операции останутся в текущем месяце)</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Категория (для точечного переноса)</label>
+      <select id="transferCategory"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAll()">Отмена</button>
+      <button class="btn btn-primary" onclick="runTransfer()">Перенести</button>
+    </div>
+  </div>
+</div>
+
+<!-- Категории -->
+<div class="overlay" id="catOverlay">
+  <div class="modal">
+    <h3>Настройки категорий</h3>
+    <div class="tabs">
+      <button class="tab" id="tabExp" onclick="switchCatType('expense')">Расходы</button>
+      <button class="tab" id="tabInc" onclick="switchCatType('income')">Доходы</button>
+    </div>
+    <div id="catList"></div>
+    <div class="field" id="catForm" style="border-top:1px solid var(--line);padding-top:12px;">
+      <label id="catFormLabel">Новая категория</label>
+      <input type="text" id="catName" placeholder="Название">
+      <div class="field">
+        <label>Пиктограмма</label>
+        <div class="icon-picker" id="iconPicker"></div>
+      </div>
+      <div class="field">
+        <label>Цвет</label>
+        <input type="color" id="catColor" value="#3b7ddd">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAll()">Закрыть</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Данные -->
+<div class="overlay" id="backupOverlay">
+  <div class="modal">
+    <h3>Данные</h3>
+    <p class="hint">Всё хранится локально в браузере. Сделайте резервную копию, чтобы не потерять записи.</p>
+    <div class="field">
+      <label>Резервная копия</label>
+      <button class="btn btn-ghost" onclick="exportData()">Скачать JSON</button>
+    </div>
+    <div class="field">
+      <label>Восстановить из файла</label>
+      <input type="file" id="importFile" accept="application/json">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="resetAll()" style="margin-right:auto;">Очистить всё</button>
+      <button class="btn btn-ghost" onclick="closeAll()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE='familyBudget_v7';
+const MONTHS=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+
+const DEFAULT_ICONS=['🛒','🏠','🚗','💊','📱','👕','🎁','🐾','🎬','💡','🎓','🍔'];
+const ICONS=['🛒','🏠','🚗','💊','📱','👕','🎁','🐾','🎬','💡','🎓','🍔','👶','🧸','🍼','🎒','🚌','🏫',
+             '💰','💵','💳','🏦','📈','🎉','✈️','☕','🧾','🔧','🌐','⚽'];
+
+let state = load();
+let view = {y:new Date().getFullYear(), m:new Date().getMonth()};
+let editingOpId=null, catType='expense', editingCatId=null, pickedIcon='🛒';
+
+function load(){
+  try{
+    const raw=localStorage.getItem(STORE);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {
+    categories:{
+      expense:[
+        {id:'food',    name:'Продукты',    icon:'🛒', color:'#e05c5c'},
+        {id:'home',    name:'Дом и ЖКХ',   icon:'🏠', color:'#3b7ddd'},
+        {id:'kids',    name:'Дети',        icon:'👶', color:'#f59e0b'},
+        {id:'transport',name:'Транспорт',  icon:'🚗', color:'#0ea5e9'},
+        {id:'health',  name:'Здоровье',    icon:'💊', color:'#ef4444'},
+        {id:'phone',   name:'Связь',       icon:'📱', color:'#8b5cf6'},
+        {id:'clothes', name:'Одежда',      icon:'👕', color:'#14b8a6'},
+        {id:'leisure', name:'Развлечения', icon:'🎬', color:'#ec4899'}
+      ],
+      income:[
+        {id:'salary',  name:'Зарплата',    icon:'💰', color:'#2e9e6b'},
+        {id:'side',    name:'Подработка',  icon:'💵', color:'#0ea5e9'},
+        {id:'gift',    name:'Подарки',     icon:'🎁', color:'#f59e0b'}
+      ]
+    },
+    ops:[]
+  };
+}
+function save(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const keyOf=(y,m)=>`${y}-${String(m+1).padStart(2,'0')}`;
+const curKey=()=>keyOf(view.y,view.m);
+const money=v=>v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽';
+
+function catById(type,id){
+  return (state.categories[type]||[]).find(c=>c.id===id) || {name:'Без категории',icon:'❔',color:'#9ca3af'};
+}
+function monthOps(){ return state.ops.filter(o=>o.month===curKey()); }
+
+function render(){
+  document.getElementById('periodLabel').textContent = MONTHS[view.m]+' '+view.y;
+  document.getElementById('periodSub').textContent = curKey();
+
+  const ops=monthOps();
+  const income=ops.filter(o=>o.type==='income').reduce((s,o)=>s+o.amount,0);
+  const expense=ops.filter(o=>o.type==='expense').reduce((s,o)=>s+o.amount,0);
+  const balance=income-expense;
+
+  const bv=document.getElementById('balanceValue');
+  bv.textContent=money(balance);
+  bv.className='balance-value '+(balance<0?'neg':'pos');
+  document.getElementById('incomeValue').textContent=money(income);
+  document.getElementById('expenseValue').textContent=money(expense);
+
+  // Категории расхода
+  const grid=document.getElementById('catGrid');
+  grid.innerHTML='';
+  state.categories.expense.forEach(c=>{
+    const sum=ops.filter(o=>o.type==='expense'&&o.catId===c.id).reduce((s,o)=>s+o.amount,0);
+    const el=document.createElement('div');
+    el.className='cat';
+    el.onclick=()=>openOperation('expense',c.id);
+    el.innerHTML=`
+      <div class="cat-icon" style="background:${hexA(c.color,.14)};color:${c.color}">${c.icon}</div>
+      <div class="cat-name">${esc(c.name)}</div>
+      <div class="cat-sum">${sum>0?shortMoney(sum):''}</div>`;
+    grid.appendChild(el);
+  });
+
+  // Операции
+  const list=document.getElementById('opsList');
+  list.innerHTML='';
+  if(!ops.length){
+    list.innerHTML='<div class="empty">В этом месяце операций нет. Нажмите на пиктограмму или «Расход».</div>';
+  }else{
+    ops.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(o=>{
+      const c=catById(o.type,o.catId);
+      const row=document.createElement('div');
+      row.className='row';
+      row.innerHTML=`
+        <div class="row-icon" style="background:${hexA(c.color,.14)};color:${c.color}">${c.icon}</div>
+        <div class="row-main" onclick="openOperation('${o.type}',null,'${o.id}')" style="cursor:pointer">
+          <div class="row-name">${esc(c.name)}${o.note?' · '+esc(o.note):''}</div>
+          <div class="row-sub">${fmtDate(o.date)}</div>
+        </div>
+        <div class="row-amount ${o.type==='expense'?'exp':'inc'}">${o.type==='expense'?'-':'+'}${money(o.amount)}</div>
+        <button class="mini" title="Перенести на следующий месяц" onclick="moveOp('${o.id}')">➔</button>`;
+      list.appendChild(row);
+    });
+  }
+  save();
+}
+
+function shortMoney(v){
+  if(v>=1000000) return (v/1000000).toFixed(1).replace('.',',')+'млн';
+  if(v>=1000) return (v/1000).toFixed(1).replace('.',',')+'тыс';
+  return Math.round(v)+'₽';
+}
+function fmtDate(iso){
+  const d=new Date(iso+'T00:00:00');
+  return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3)+'.';
+}
+function hexA(hex,a){
+  const h=hex.replace('#','');
+  const n=h.length===3?h.split('').map(x=>x+x).join(''):h;
+  const r=parseInt(n.slice(0,2),16),g=parseInt(n.slice(2,4),16),b=parseInt(n.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* --- Навигация по месяцам --- */
+function shiftPeriod(d){
+  let m=view.m+d, y=view.y;
+  if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+  view={y,m}; render();
+}
+
+/* --- Операции --- */
+function openOperation(type,catId,opId){
+  editingOpId=opId||null;
+  const sel=document.getElementById('opCategory');
+  sel.innerHTML='';
+  (state.categories[type]||[]).forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id; o.textContent=c.icon+' '+c.name; sel.appendChild(o);
+  });
+  document.getElementById('opTitle').textContent =
+    opId?'Редактировать операцию':(type==='expense'?'Новый расход':'Новый доход');
+  document.getElementById('opTitle').dataset.type=type;
+
+  if(opId){
+    const op=state.ops.find(x=>x.id===opId);
+    document.getElementById('opAmount').value=op.amount;
+    document.getElementById('opCategory').value=op.catId;
+    document.getElementById('opDate').value=op.date;
+    document.getElementById('opNote').value=op.note||'';
+    document.getElementById('opDelete').style.display='block';
+  }else{
+    document.getElementById('opAmount').value='';
+    if(catId) sel.value=catId;
+    document.getElementById('opDate').value=todayInView();
+    document.getElementById('opNote').value='';
+    document.getElementById('opDelete').style.display='none';
+  }
+  document.getElementById('opOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('opAmount').focus(),50);
+}
+function todayInView(){
+  const now=new Date();
+  const sameMonth = now.getFullYear()===view.y && now.getMonth()===view.m;
+  const day = sameMonth?now.getDate():1;
+  return `${view.y}-${String(view.m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function saveOperation(){
+  const type=document.getElementById('opTitle').dataset.type||'expense';
+  const amount=parseFloat(document.getElementById('opAmount').value);
+  if(!amount||amount<=0){ alert('Укажите сумму больше нуля.'); return; }
+  const date=document.getElementById('opDate').value||todayInView();
+  const d=new Date(date+'T00:00:00');
+  const month=keyOf(d.getFullYear(),d.getMonth());
+  const payload={
+    type, amount,
+    catId:document.getElementById('opCategory').value,
+    date, month,
+    note:document.getElementById('opNote').value.trim()
+  };
+  if(editingOpId){
+    const op=state.ops.find(x=>x.id===editingOpId);
+    Object.assign(op,payload);
+  }else{
+    state.ops.push({id:uid(),...payload});
+  }
+  view={y:d.getFullYear(),m:d.getMonth()};
+  closeAll(); render();
+}
+function deleteOperation(){
+  if(!editingOpId) return;
+  if(!confirm('Удалить эту операцию?')) return;
+  state.ops=state.ops.filter(o=>o.id!==editingOpId);
+  closeAll(); render();
+}
+function moveOp(id){
+  const op=state.ops.find(o=>o.id===id); if(!op) return;
+  const d=new Date(op.date+'T00:00:00');
+  d.setMonth(d.getMonth()+1);
+  op.date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  op.month=keyOf(d.getFullYear(),d.getMonth());
+  render();
+}
+
+/* --- Перенос статей --- */
+function openTransfer(){
+  const nx=new Date(view.y,view.m+1,1);
+  document.getElementById('transferTarget').value=keyOf(nx.getFullYear(),nx.getMonth());
+  const sel=document.getElementById('transferCategory');
+  sel.innerHTML='';
+  state.categories.expense.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id; o.textContent=c.icon+' '+c.name; sel.appendChild(o);
+  });
+  document.getElementById('transferOverlay').classList.add('show');
+}
+function runTransfer(){
+  const target=document.getElementById('transferTarget').value;
+  if(!target){ alert('Выберите месяц.'); return; }
+  const mode=document.querySelector('input[name="transferMode"]:checked').value;
+  const catId=document.getElementById('transferCategory').value;
+  const source=curKey();
+  const [ty,tm]=target.split('-').map(Number);
+
+  let moved=0;
+  const created=[];
+  state.ops.forEach(op=>{
+    if(op.month!==source) return;
+    if(mode==='category' && op.catId!==catId) return;
+    const d=new Date(op.date+'T00:00:00');
+    const day=Math.min(d.getDate(), new Date(ty,tm,0).getDate());
+    const newDate=`${ty}-${String(tm).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+    if(mode==='copy'){
+      created.push({id:uid(),type:op.type,amount:op.amount,catId:op.catId,
+        note:op.note,date:newDate,month:keyOf(ty,tm-1)});
+    }else{
+      op.date=newDate;
+      op.month=keyOf(ty,tm-1);
+    }
+    moved++;
+  });
+  if(created.length) state.ops.push(...created);
+  closeAll();
+  if(!moved){ alert('В этом месяце нечего переносить.'); return; }
+  view={y:ty,m:tm-1};
+  render();
+  alert(`Перенесено операций: ${moved}. Открыт ${MONTHS[tm-1]} ${ty}.`);
+}
+
+/* --- Категории --- */
+function openCategories(){
+  editingCatId=null;
+  document.getElementById('catName').value='';
+  document.getElementById('catFormLabel').textContent='Новая категория';
+  document.getElementById('catColor').value='#3b7ddd';
+  pickedIcon='🛒';
+  buildIconPicker(); renderCatList(); switchCatType(catType);
+  document.getElementById('catOverlay').classList.add('show');
+}
+function switchCatType(t){
+  catType=t;
+  document.getElementById('tabExp').classList.toggle('on',t==='expense');
+  document.getElementById('tabInc').classList.toggle('on',t==='income');
+  renderCatList();
+}
+function buildIconPicker(){
+  const p=document.getElementById('iconPicker');
+  p.innerHTML='';
+  ICONS.forEach(ic=>{
+    const b=document.createElement('button');
+    b.className='icon-opt'+(ic===pickedIcon?' sel':'');
+    b.textContent=ic;
+    b.onclick=()=>{ pickedIcon=ic; buildIconPicker(); };
+    p.appendChild(b);
+  });
+}
+function renderCatList(){
+  const box=document.getElementById('catList');
+  box.innerHTML='';
+  (state.categories[catType]||[]).forEach(c=>{
+    const row=document.createElement('div');
+    row.className='cat-row';
+    row.innerHTML=`
+      <div class="cat-icon" style="background:${hexA(c.color,.14)};color:${c.color};width:32px;height:32px;border-radius:9px;font-size:16px;display:flex;align-items:center;justify-content:center">${c.icon}</div>
+      <div style="flex:1;font-size:13px;font-weight:600;">${esc(c.name)}</div>
+      <button class="mini" title="Изменить" onclick="editCategory('${c.id}')">✎</button>
+      <button class="mini" title="Удалить" onclick="removeCategory('${c.id}')">🗑</button>`;
+    box.appendChild(row);
+  });
+}
+function editCategory(id){
+  const c=(state.categories[catType]||[]).find(x=>x.id===id); if(!c) return;
+  editingCatId=id;
+  document.getElementById('catFormLabel').textContent='Изменение: '+c.name;
+  document.getElementById('catName').value=c.name;
+  document.getElementById('catColor').value=c.color;
+  pickedIcon=c.icon; buildIconPicker();
+}
+function saveCategory(){
+  const name=document.getElementById('catName').value.trim();
+  if(!name){ alert('Введите название.'); return; }
+  const color=document.getElementById('catColor').value;
+  if(editingCatId){
+    const c=state.categories[catType].find(x=>x.id===editingCatId);
+    c.name=name; c.icon=pickedIcon; c.color=color;
+  }else{
+    state.categories[catType].push({id:uid(),name,icon:pickedIcon,color});
+  }
+  editingCatId=null;
+  document.getElementById('catName').value='';
+  document.getElementById('catFormLabel').textContent='Новая категория';
+  renderCatList(); render();
+}
+function removeCategory(id){
+  const c=state.categories[catType].find(x=>x.id===id);
+  const used=state.ops.filter(o=>o.catId===id).length;
+  if(!confirm(`Удалить категорию «${c.name}»?${used?` Операций по ней: ${used} — они останутся без категории.`:''}`)) return;
+  state.categories[catType]=state.categories[catType].filter(x=>x.id!==id);
+  renderCatList(); render();
+}
+
+/* --- Данные --- */
+function openBackup(){ document.getElementById('backupOverlay').classList.add('show'); }
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='family-budget-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+document.getElementById('importFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      if(!data.categories||!Array.isArray(data.ops)) throw 0;
+      state=data; save(); render(); closeAll();
+      alert('Данные восстановлены.');
+    }catch(err){ alert('Не удалось прочитать файл.'); }
+  };
+  r.readAsText(f);
+});
+function resetAll(){
+  if(!confirm('Удалить все операции и вернуть категории по умолчанию?')) return;
+  localStorage.removeItem(STORE);
+  state=load(); closeAll(); render();
+}
+
+function closeAll(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));
+}
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) closeAll(); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); });
+
+render();
+</script>
+</body>
+</html>
